@@ -7,6 +7,7 @@ import (
 
 	config "github.com/harness/mcp-server/common"
 	"github.com/harness/mcp-server/common/client"
+	pkgutils "github.com/harness/mcp-server/common/pkg/utils"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -21,7 +22,8 @@ const (
 // ListFMEWorkspacesTool creates a tool for listing FME workspaces
 func ListFMEWorkspacesTool(config *config.McpServerConfig, fmeService *client.FMEService) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("list_fme_workspaces",
-			mcp.WithDescription("List Feature Management & Experimentation (FME) workspaces."),
+			mcp.WithDescription("List Feature Management & Experimentation (FME) workspaces. Returns workspace IDs and names. Use workspace IDs with list_fme_environments, list_fme_feature_flags, and fme_get_feature_flag."),
+			mcp.WithToolAnnotation(mcp.ToolAnnotation{ReadOnlyHint: pkgutils.ToBoolPtr(true)}),
 			mcp.WithNumber("offset",
 				mcp.Description("The number of workspaces to skip for pagination (default: 0)"),
 			),
@@ -48,7 +50,7 @@ func ListFMEWorkspacesTool(config *config.McpServerConfig, fmeService *client.FM
 
 			workspaces, err := fmeService.ListWorkspaces(ctx, offset, limit)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list FME workspaces: %v", err)), nil
+				return nil, fmt.Errorf("failed to list FME workspaces: %w", err)
 			}
 
 			responseBytes, err := json.Marshal(workspaces)
@@ -63,10 +65,11 @@ func ListFMEWorkspacesTool(config *config.McpServerConfig, fmeService *client.FM
 // ListFMEEnvironmentsTool creates a tool for listing FME environments for a specific workspace
 func ListFMEEnvironmentsTool(config *config.McpServerConfig, fmeService *client.FMEService) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("list_fme_environments",
-			mcp.WithDescription("List Feature Management & Experimentation (FME) environments for a specific workspace."),
+			mcp.WithDescription("List Feature Management & Experimentation (FME) environments for a specific workspace. Returns environment IDs and names. Use environment IDs with get_fme_feature_flag_definition."),
+			mcp.WithToolAnnotation(mcp.ToolAnnotation{ReadOnlyHint: pkgutils.ToBoolPtr(true)}),
 			mcp.WithString("ws_id",
 				mcp.Required(),
-				mcp.Description("The workspace ID to list environments for"),
+				mcp.Description("The workspace ID. Use list_fme_workspaces to find workspace IDs."),
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -77,7 +80,7 @@ func ListFMEEnvironmentsTool(config *config.McpServerConfig, fmeService *client.
 
 			environments, err := fmeService.ListEnvironments(ctx, wsID)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list FME environments: %v", err)), nil
+				return nil, fmt.Errorf("failed to list FME environments: %w", err)
 			}
 
 			responseBytes, err := json.Marshal(environments)
@@ -92,10 +95,11 @@ func ListFMEEnvironmentsTool(config *config.McpServerConfig, fmeService *client.
 // ListFMEFeatureFlagsTool creates a tool for listing FME feature flags for a specific workspace
 func ListFMEFeatureFlagsTool(config *config.McpServerConfig, fmeService *client.FMEService) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("list_fme_feature_flags",
-			mcp.WithDescription("List Feature Management & Experimentation (FME) feature flags for a specific workspace."),
+			mcp.WithDescription("List Feature Management & Experimentation (FME) feature flags for a specific workspace. Returns feature flag names and metadata. Use feature flag names with fme_get_feature_flag and get_fme_feature_flag_definition."),
+			mcp.WithToolAnnotation(mcp.ToolAnnotation{ReadOnlyHint: pkgutils.ToBoolPtr(true)}),
 			mcp.WithString("ws_id",
 				mcp.Required(),
-				mcp.Description("The workspace ID to list feature flags for"),
+				mcp.Description("The workspace ID. Use list_fme_workspaces to find workspace IDs."),
 			),
 			mcp.WithNumber("offset",
 				mcp.Description("The number of feature flags to skip for pagination (default: 0)"),
@@ -128,7 +132,7 @@ func ListFMEFeatureFlagsTool(config *config.McpServerConfig, fmeService *client.
 
 			featureFlags, err := fmeService.ListFeatureFlags(ctx, wsID, offset, limit)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to list FME feature flags: %v", err)), nil
+				return nil, fmt.Errorf("failed to list FME feature flags: %w", err)
 			}
 
 			responseBytes, err := json.Marshal(featureFlags)
@@ -143,14 +147,15 @@ func ListFMEFeatureFlagsTool(config *config.McpServerConfig, fmeService *client.
 // GetFMEFeatureFlagTool creates a tool for getting a specific FME feature flag
 func GetFMEFeatureFlagTool(config *config.McpServerConfig, fmeService *client.FMEService) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("fme_get_feature_flag",
-			mcp.WithDescription("Get a specific Feature Management & Experimentation (FME) feature flag."),
+			mcp.WithDescription("Get a specific Feature Management & Experimentation (FME) feature flag's metadata (name, description, traffic type). For targeting rules and treatments in a specific environment, use get_fme_feature_flag_definition instead."),
+			mcp.WithToolAnnotation(mcp.ToolAnnotation{ReadOnlyHint: pkgutils.ToBoolPtr(true)}),
 			mcp.WithString("ws_id",
 				mcp.Required(),
-				mcp.Description("The workspace ID"),
+				mcp.Description("The workspace ID. Use list_fme_workspaces to find workspace IDs."),
 			),
 			mcp.WithString("feature_flag_name",
 				mcp.Required(),
-				mcp.Description("The name of the feature flag"),
+				mcp.Description("The name of the feature flag. Use list_fme_feature_flags to find feature flag names."),
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -166,7 +171,7 @@ func GetFMEFeatureFlagTool(config *config.McpServerConfig, fmeService *client.FM
 
 			featureFlag, err := fmeService.GetFeatureFlag(ctx, wsID, flagName)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get FME feature flag: %v", err)), nil
+				return nil, fmt.Errorf("failed to get FME feature flag: %w", err)
 			}
 
 			responseBytes, err := json.Marshal(featureFlag)
@@ -181,18 +186,19 @@ func GetFMEFeatureFlagTool(config *config.McpServerConfig, fmeService *client.FM
 // GetFMEFeatureFlagDefinitionTool creates a tool for getting a specific FME feature flag definition
 func GetFMEFeatureFlagDefinitionTool(config *config.McpServerConfig, fmeService *client.FMEService) (mcp.Tool, server.ToolHandlerFunc) {
 	return mcp.NewTool("get_fme_feature_flag_definition",
-			mcp.WithDescription("Get the definition of a specific Feature Management & Experimentation (FME) feature flag in an environment."),
+			mcp.WithDescription("Get the definition of a specific Feature Management & Experimentation (FME) feature flag in an environment. Returns targeting rules, treatments, and default treatment for that environment. For basic flag metadata, use fme_get_feature_flag instead."),
+			mcp.WithToolAnnotation(mcp.ToolAnnotation{ReadOnlyHint: pkgutils.ToBoolPtr(true)}),
 			mcp.WithString("ws_id",
 				mcp.Required(),
-				mcp.Description("The workspace ID"),
+				mcp.Description("The workspace ID. Use list_fme_workspaces to find workspace IDs."),
 			),
 			mcp.WithString("feature_flag_name",
 				mcp.Required(),
-				mcp.Description("The name of the feature flag"),
+				mcp.Description("The name of the feature flag. Use list_fme_feature_flags to find feature flag names."),
 			),
 			mcp.WithString("environment_id_or_name",
 				mcp.Required(),
-				mcp.Description("The environment ID or name"),
+				mcp.Description("The environment ID or name. Use list_fme_environments to find environment IDs."),
 			),
 		),
 		func(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -213,7 +219,7 @@ func GetFMEFeatureFlagDefinitionTool(config *config.McpServerConfig, fmeService 
 
 			definition, err := fmeService.GetFeatureFlagDefinition(ctx, wsID, flagName, envIDOrName)
 			if err != nil {
-				return mcp.NewToolResultError(fmt.Sprintf("failed to get FME feature flag definition: %v", err)), nil
+				return nil, fmt.Errorf("failed to get FME feature flag definition: %w", err)
 			}
 
 			responseBytes, err := json.Marshal(definition)
